@@ -861,6 +861,11 @@ int WINAPI WinMain(HINSTANCE inst, HINSTANCE prev, LPSTR cmdline, int show)
     SetForegroundWindow(hwnd);
 
     /*
+     * Maximize Window
+     */
+    SendMessage(hwnd, WM_SYSCOMMAND, SC_MAXIMIZE, 0);
+    
+    /*
      * Set the palette up.
      */
     pal = NULL;
@@ -2060,8 +2065,8 @@ void notify_remote_exit(void *fe)
 	     * by a fatal error, so an error box will be coming our way and
 	     * we should not generate this informational one. */
 	    if (exitcode != INT_MAX)
-		MessageBox(hwnd, "Connection closed by remote host",
-			   appname, MB_OK | MB_ICONINFORMATION);
+		/*MessageBox(hwnd, "Connection closed by remote host",
+			   appname, MB_OK | MB_ICONINFORMATION)*/;
 	}
     }
 }
@@ -2220,6 +2225,13 @@ static LRESULT CALLBACK WndProc(HWND hwnd, UINT message,
 	    }
 	    break;
 	  case IDM_RESTART:
+		  // reset terminal, same as IDM_RESET
+		  term_pwron(term, TRUE);
+		  if (ldisc)
+		  {
+			  ldisc_send(ldisc, NULL, 0, 0);
+		  }
+		  // then clear scrollback, same as IDM_CLRSB	  
 	    if (!back) {
 		logevent(NULL, "----- Session restarted -----");
 		term_pwron(term, FALSE);

@@ -453,12 +453,12 @@ void save_open_settings(void *sesskey, Conf *conf)
     write_setting_i(sesskey, "PortNumber", conf_get_int(conf, CONF_port));
     /* The CloseOnExit numbers are arranged in a different order from
      * the standard FORCE_ON / FORCE_OFF / AUTO. */
-    write_setting_i(sesskey, "CloseOnExit", (conf_get_int(conf, CONF_close_on_exit)+2)%3);
+    write_setting_i(sesskey, "CloseOnExit", (conf_get_int(conf, CONF_close_on_exit)+2+1)%3);
     write_setting_i(sesskey, "WarnOnClose", !!conf_get_int(conf, CONF_warn_on_close));
-    write_setting_i(sesskey, "PingInterval", conf_get_int(conf, CONF_ping_interval) / 60);	/* minutes */
-    write_setting_i(sesskey, "PingIntervalSecs", conf_get_int(conf, CONF_ping_interval) % 60);	/* seconds */
+    write_setting_i(sesskey, "PingInterval", (conf_get_int(conf, CONF_ping_interval) - 60) / 60);	/* minutes */
+    write_setting_i(sesskey, "PingIntervalSecs", (conf_get_int(conf, CONF_ping_interval) - 60)% 60);	/* seconds */
     write_setting_i(sesskey, "TCPNoDelay", conf_get_int(conf, CONF_tcp_nodelay));
-    write_setting_i(sesskey, "TCPKeepalives", conf_get_int(conf, CONF_tcp_keepalives));
+    write_setting_i(sesskey, "TCPKeepalives", (conf_get_int(conf, CONF_tcp_keepalives)+1)%2);
     write_setting_s(sesskey, "TerminalType", conf_get_str(conf, CONF_termtype));
     write_setting_s(sesskey, "TerminalSpeed", conf_get_str(conf, CONF_termspeed));
     wmap(sesskey, "TerminalModes", conf, CONF_ttymodes, TRUE);
@@ -537,8 +537,8 @@ void save_open_settings(void *sesskey, Conf *conf)
     write_setting_i(sesskey, "HideMousePtr", conf_get_int(conf, CONF_hide_mouseptr));
     write_setting_i(sesskey, "SunkenEdge", conf_get_int(conf, CONF_sunken_edge));
     write_setting_i(sesskey, "WindowBorder", conf_get_int(conf, CONF_window_border));
-    write_setting_i(sesskey, "CurType", conf_get_int(conf, CONF_cursor_type));
-    write_setting_i(sesskey, "BlinkCur", conf_get_int(conf, CONF_blink_cur));
+    write_setting_i(sesskey, "CurType", (conf_get_int(conf, CONF_cursor_type)+1)%3);
+    write_setting_i(sesskey, "BlinkCur", (conf_get_int(conf, CONF_blink_cur)+1)%2);
     write_setting_i(sesskey, "Beep", conf_get_int(conf, CONF_beep));
     write_setting_i(sesskey, "BeepInd", conf_get_int(conf, CONF_beep_ind));
     write_setting_filename(sesskey, "BellWaveFile", conf_get_filename(conf, CONF_bell_wavefile));
@@ -565,7 +565,10 @@ void save_open_settings(void *sesskey, Conf *conf)
     write_setting_s(sesskey, "WinTitle", conf_get_str(conf, CONF_wintitle));
     write_setting_i(sesskey, "TermWidth", conf_get_int(conf, CONF_width));
     write_setting_i(sesskey, "TermHeight", conf_get_int(conf, CONF_height));
+    FontSpec *fontspec = conf_get_fontspec(conf, CONF_font);
+    fontspec->height -= 3; /*pre-save*/   
     write_setting_fontspec(sesskey, "Font", conf_get_fontspec(conf, CONF_font));
+    fontspec->height += 3;/*post-save*/    
     write_setting_i(sesskey, "FontQuality", conf_get_int(conf, CONF_font_quality));
     write_setting_i(sesskey, "FontVTMode", conf_get_int(conf, CONF_vtmode));
     write_setting_i(sesskey, "UseSystemColours", conf_get_int(conf, CONF_system_colour));
@@ -701,17 +704,19 @@ void load_open_settings(void *sesskey, Conf *conf)
 
     /* The CloseOnExit numbers are arranged in a different order from
      * the standard FORCE_ON / FORCE_OFF / AUTO. */
-    i = gppi_raw(sesskey, "CloseOnExit", 1); conf_set_int(conf, CONF_close_on_exit, (i+1)%3);
+    i = gppi_raw(sesskey, "CloseOnExit", 1); conf_set_int(conf, CONF_close_on_exit, (i+1+2)%3);
     gppi(sesskey, "WarnOnClose", 1, conf, CONF_warn_on_close);
     {
 	/* This is two values for backward compatibility with 0.50/0.51 */
 	int pingmin, pingsec;
 	pingmin = gppi_raw(sesskey, "PingInterval", 0);
 	pingsec = gppi_raw(sesskey, "PingIntervalSecs", 0);
-	conf_set_int(conf, CONF_ping_interval, pingmin * 60 + pingsec);
+	conf_set_int(conf, CONF_ping_interval, pingmin * 60 + pingsec + 60);
     }
     gppi(sesskey, "TCPNoDelay", 1, conf, CONF_tcp_nodelay);
     gppi(sesskey, "TCPKeepalives", 0, conf, CONF_tcp_keepalives);
+    i = conf_get_int(conf, CONF_tcp_keepalives);
+    conf_set_int(conf, CONF_tcp_keepalives, (i+1)%2);    
     gpps(sesskey, "TerminalType", "xterm", conf, CONF_termtype);
     gpps(sesskey, "TerminalSpeed", "38400,38400", conf, CONF_termspeed);
     if (!gppmap(sesskey, "TerminalModes", conf, CONF_ttymodes)) {
@@ -838,7 +843,11 @@ void load_open_settings(void *sesskey, Conf *conf)
     gppi(sesskey, "SunkenEdge", 0, conf, CONF_sunken_edge);
     gppi(sesskey, "WindowBorder", 1, conf, CONF_window_border);
     gppi(sesskey, "CurType", 0, conf, CONF_cursor_type);
+    int cursortype = conf_get_int(conf, CONF_cursor_type);
+    conf_set_int(conf, CONF_cursor_type, (cursortype+2)%3);    
     gppi(sesskey, "BlinkCur", 0, conf, CONF_blink_cur);
+    int blinkcur = conf_get_int(conf, CONF_blink_cur);
+    conf_set_int(conf, CONF_blink_cur, (blinkcur+1)%2);    
     /* pedantic compiler tells me I can't use conf, CONF_beep as an int * :-) */
     gppi(sesskey, "Beep", 1, conf, CONF_beep);
     gppi(sesskey, "BeepInd", 0, conf, CONF_beep_ind);
@@ -877,6 +886,8 @@ void load_open_settings(void *sesskey, Conf *conf)
     gppi(sesskey, "TermWidth", 80, conf, CONF_width);
     gppi(sesskey, "TermHeight", 24, conf, CONF_height);
     gppfont(sesskey, "Font", conf, CONF_font);
+    FontSpec *fontspec = conf_get_fontspec(conf, CONF_font); 
+    fontspec->height += 3;
     gppi(sesskey, "FontQuality", FQ_DEFAULT, conf, CONF_font_quality);
     gppi(sesskey, "FontVTMode", VT_UNICODE, conf, CONF_vtmode);
     gppi(sesskey, "UseSystemColours", 0, conf, CONF_system_colour);
